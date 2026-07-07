@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import PropertyForm from "@/components/PropertyForm";
 import KnowledgeBase from "@/components/KnowledgeBase";
@@ -27,10 +28,17 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-display text-3xl">{property.name}</h1>
-      <p className="mt-1 text-sea/60">
-        Guest page: <span className="font-mono text-sm">/guest/{property.slug}</span>
-      </p>
+      <div className="fade-in flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl tracking-tight">{property.name}</h1>
+          <p className="mt-1 text-sea/60">
+            Guest page: <span className="font-mono text-sm">/guest/{property.slug}</span>
+          </p>
+        </div>
+        <Link href={`/dashboard/wizard?property=${property.id}`} className="btn-secondary">
+          ✨ AI Import από κείμενο
+        </Link>
+      </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-10">

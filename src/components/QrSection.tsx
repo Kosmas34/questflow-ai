@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { Download, Link as LinkIcon, Check } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 // QR panel on the property page: live preview (PNG endpoint),
 // copy guest link, and "Download Room QR Card" (PDF endpoint).
 export default function QrSection({ propertyId, slug }: { propertyId: string; slug: string }) {
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
   const guestUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/guest/${slug}`;
 
   async function copyLink() {
     await navigator.clipboard.writeText(guestUrl);
     setCopied(true);
+    toast.success("Το link αντιγράφηκε.");
     setTimeout(() => setCopied(false), 2000);
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useToast } from "@/components/Toast";
 import {
   REQUEST_CATEGORY_LABELS,
   REQUEST_STATUS_LABELS,
@@ -26,6 +27,7 @@ export default function RequestList({
 }) {
   const [requests, setRequests] = useState(initialRequests);
   const [filter, setFilter] = useState<"all" | RequestStatus>("all");
+  const toast = useToast();
 
   async function setStatus(id: string, status: RequestStatus) {
     // Optimistic update, revert on failure.
@@ -35,7 +37,12 @@ export default function RequestList({
       .from("requests")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id);
-    if (error) setRequests(prev);
+    if (error) {
+      setRequests(prev);
+      toast.error("Η ενημέρωση απέτυχε. Δοκιμάστε ξανά.");
+    } else {
+      toast.success(`Το αίτημα σημειώθηκε: ${REQUEST_STATUS_LABELS[status]}`);
+    }
   }
 
   const filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter);
@@ -67,7 +74,7 @@ export default function RequestList({
       ) : (
         <div className="mt-6 space-y-3">
           {filtered.map((r) => (
-            <div key={r.id} className="card py-4">
+            <div key={r.id} className="card card-hover fade-in py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

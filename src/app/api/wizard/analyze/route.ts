@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { aiChat } from "@/lib/ai/provider";
@@ -7,6 +8,35 @@ import { KNOWLEDGE_CATEGORY_LABELS } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+// ---- Import cache: identical input → cached result, no AI call ----
+// Keyed by sha256(text|name|area). In-memory per instance, 1h TTL.
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHE_MAX = 50;
+const analysisCache = new Map<string, { data: unknown; ts: number }>();
+
+function cacheKey(text: string, name: string, area: string): string {
+  return createHash("sha256").update(`${text}|${name}|${area}`).digest("hex");
+}
+
+function cacheGet(key: string): unknown | null {
+  const hit = analysisCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > CACHE_TTL_MS) {
+    analysisCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function cacheSet(key: string, data: unknown): void {
+  if (analysisCache.size >= CACHE_MAX) {
+    // Drop the oldest entry.
+    const oldest = analysisCache.keys().next().value;
+    if (oldest) analysisCache.delete(oldest);
+  }
+  analysisCache.set(key, { data, ts: Date.now() });
+}
 
 // POST /api/wizard/analyze { text, propertyName?, area? }
 // Owner-authenticated. Extracts structured property data + knowledge
@@ -20,14 +50,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Protect AI credits: 10 analyses per hour per owner is plenty.
-  if (!checkLimit(`wizard:analyze:${user.id}`, 10, 60 * 60 * 1000)) {
-    return NextResponse.json(
-      { error: "Πολλές αναλύσεις σε σύντομο διάστημα. Δοκιμάστε ξανά σε λίγο." },
-      { status: 429 }
-    );
-  }
-
   const body = await req.json().catch(() => null);
   const text: string = (body?.text ?? "").toString().slice(0, 12000);
   const propertyName: string = (body?.propertyName ?? "").toString().slice(0, 120);
@@ -37,6 +59,21 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Το κείμενο είναι πολύ μικρό για ανάλυση." },
       { status: 400 }
+    );
+  }
+
+  // Cache hit → free and instant; doesn't count against the rate limit.
+  const key = cacheKey(text, propertyName, area);
+  const cached = cacheGet(key);
+  if (cached) {
+    return NextResponse.json({ ...(cached as object), cached: true });
+  }
+
+  // Protect AI credits: 10 fresh analyses per hour per owner is plenty.
+  if (!checkLimit(`wizard:analyze:${user.id}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: "Πολλές αναλύσεις σε σύντομο διάστημα. Δοκιμάστε ξανά σε λίγο." },
+      { status: 429 }
     );
   }
 
@@ -64,9 +101,19 @@ SCHEMA:
   },
   "welcome_message": string,      // ONE warm 1-2 sentence greeting for guests, written in the SAME language as the input text. Compose it from the property's tone; do not invent facts.
   "items": [                      // knowledge base entries
-    { "category": string, "title": string, "content": string }
-  ]
+    { "category": string, "title": string, "content": string, "confidence": number }
+  ],
+  "property_confidence": {        // 0-100 per property field you filled
+    "checkin_time": number, "checkout_time": number, "wifi_name": number,
+    "wifi_password": number, "phone": number, "emergency_contact": number,
+    "house_rules": number, "access_instructions": number
+  }
 }
+
+CONFIDENCE (0-100): how certain you are the extraction is correct and complete.
+- 95-100: stated explicitly and unambiguously (e.g. "WiFi password: 12345678")
+- 70-94: clearly implied but slightly ambiguous wording
+- below 70: uncertain, partial, or inferred — the owner must verify
 
 CATEGORY must be one of:
 ${categoriesDoc}
@@ -91,11 +138,13 @@ RULES:
     if (propertyName) extraction.property.name = propertyName;
     if (area) extraction.property.area = area;
 
-    return NextResponse.json({
+    const payload = {
       extraction,
       suggestions: computeSuggestions(extraction.items),
       quickButtons: suggestQuickButtons(extraction.items),
-    });
+    };
+    cacheSet(key, payload);
+    return NextResponse.json(payload);
   } catch (err) {
     console.error("Wizard analysis failed:", err);
     return NextResponse.json(

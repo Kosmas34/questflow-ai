@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LayoutDashboard, Building2, Bell, BarChart3 } from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
+import { ToastProvider } from "@/components/Toast";
 
 const NAV = [
   { href: "/dashboard", label: "Επισκόπηση", icon: LayoutDashboard },
@@ -34,7 +35,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main className="flex-1 px-4 py-8 md:px-10">{children}</main>
+      <main className="flex-1 px-4 py-8 md:px-10">
+        <ToastProvider>{children}</ToastProvider>
+      </main>
     </div>
   );
 }

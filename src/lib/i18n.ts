@@ -53,6 +53,6 @@ export const GUEST_STRINGS: Record<GuestLang, Record<string, string>> = {
 };
 
 export const FALLBACK_ANSWER: Record<GuestLang, string> = {
-  el: "Δεν έχω αυτή την πληροφορία. Μπορώ να ενημερώσω τον ιδιοκτήτη.",
-  en: "I don't have that information. I can notify the host.",
+  el: "Δεν το έχω καταχωρημένο αυτή τη στιγμή. Μπορώ όμως να ενημερώσω την ομάδα του καταλύματος για να σας βοηθήσει.",
+  en: "I don't have that detail saved yet, but I can notify the property team so they can help you.",
 };

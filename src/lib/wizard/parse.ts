@@ -7,6 +7,8 @@ export interface WizardItem {
   category: KnowledgeCategory;
   title: string;
   content: string;
+  /** AI extraction confidence 0-100; null when the model didn't report one. */
+  confidence?: number | null;
 }
 
 export interface WizardExtraction {
@@ -24,6 +26,8 @@ export interface WizardExtraction {
   };
   welcome_message: string;
   items: WizardItem[];
+  /** Confidence per property field (0-100), when reported by the model. */
+  property_confidence: Partial<Record<keyof WizardExtraction["property"], number>>;
 }
 
 const VALID_CATEGORIES = new Set<string>(Object.keys(KNOWLEDGE_CATEGORY_LABELS));
@@ -56,6 +60,16 @@ function str(v: unknown, max = 2000): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
 
+/** Clamps a confidence value to an integer 0-100; null if not a number. */
+export function clampConfidence(v: unknown): number | null {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  if (typeof n !== "number" || Number.isNaN(n)) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/** Fields below this threshold get a "please verify" warning in the UI. */
+export const CONFIDENCE_WARNING_THRESHOLD = 70;
+
 /** Validates "HH:MM"; returns fallback otherwise. */
 function timeStr(v: unknown, fallback: string): string {
   const s = str(v, 5);
@@ -86,6 +100,7 @@ export function parseWizardResponse(aiText: string): WizardExtraction {
           category: normalizeCategory(it?.category),
           title: str(it?.title, 120),
           content: str(it?.content, 2000),
+          confidence: clampConfidence(it?.confidence),
         }))
         .filter((it: WizardItem) => it.title && it.content)
         .slice(0, 40)
@@ -106,7 +121,25 @@ export function parseWizardResponse(aiText: string): WizardExtraction {
     },
     welcome_message: str(raw?.welcome_message, 400),
     items,
+    property_confidence: parsePropertyConfidence(raw?.property_confidence),
   };
+}
+
+function parsePropertyConfidence(
+  raw: any
+): WizardExtraction["property_confidence"] {
+  const out: WizardExtraction["property_confidence"] = {};
+  if (!raw || typeof raw !== "object") return out;
+  const keys: (keyof WizardExtraction["property"])[] = [
+    "name", "area", "checkin_time", "checkout_time", "wifi_name",
+    "wifi_password", "phone", "emergency_contact", "house_rules",
+    "access_instructions",
+  ];
+  for (const k of keys) {
+    const c = clampConfidence(raw[k]);
+    if (c !== null) out[k] = c;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------
@@ -153,3 +186,99 @@ export function suggestQuickButtons(items: WizardItem[]): QuickButtonKey[] {
   buttons.push("help");
   return buttons;
 }
+
+
+// ---------------------------------------------------------------
+// Smart Merge: when importing into an EXISTING property, never
+// overwrite silently — compute conflicts and let the owner decide.
+// ---------------------------------------------------------------
+
+export type PropertyFieldKey = keyof WizardExtraction["property"];
+
+export const FIELD_LABELS: Record<PropertyFieldKey, string> = {
+  name: "Όνομα",
+  area: "Περιοχή",
+  checkin_time: "Check-in",
+  checkout_time: "Check-out",
+  wifi_name: "Όνομα WiFi",
+  wifi_password: "Κωδικός WiFi",
+  phone: "Τηλέφωνο",
+  emergency_contact: "Emergency contact",
+  house_rules: "Κανόνες σπιτιού",
+  access_instructions: "Οδηγίες πρόσβασης",
+};
+
+export interface FieldConflict {
+  field: PropertyFieldKey;
+  label: string;
+  existing: string;
+  incoming: string;
+}
+
+export interface CategoryConflict {
+  category: KnowledgeCategory;
+  label: string;
+  existingCount: number;
+  incomingCount: number;
+}
+
+export interface MergePlan {
+  /** Field present in BOTH with different values → owner chooses Replace / Keep. */
+  fieldConflicts: FieldConflict[];
+  /** Field empty on the property, filled by the import → applied automatically. */
+  newFields: PropertyFieldKey[];
+  /** Category with items on BOTH sides → owner chooses Replace / Merge. */
+  categoryConflicts: CategoryConflict[];
+  /** Categories only in the import → inserted automatically. */
+  newCategories: KnowledgeCategory[];
+}
+
+export function computeMergePlan(
+  existing: WizardExtraction["property"],
+  existingItems: { category: string }[],
+  extraction: WizardExtraction
+): MergePlan {
+  const fieldConflicts: FieldConflict[] = [];
+  const newFields: PropertyFieldKey[] = [];
+
+  (Object.keys(FIELD_LABELS) as PropertyFieldKey[]).forEach((field) => {
+    const oldVal = (existing[field] ?? "").trim();
+    const newVal = (extraction.property[field] ?? "").trim();
+    if (!newVal) return; // import has nothing → nothing to decide
+    if (!oldVal) {
+      newFields.push(field); // fills a gap → safe to apply
+    } else if (oldVal !== newVal) {
+      fieldConflicts.push({ field, label: FIELD_LABELS[field], existing: oldVal, incoming: newVal });
+    }
+  });
+
+  const existingCats = new Map<string, number>();
+  for (const it of existingItems) {
+    existingCats.set(it.category, (existingCats.get(it.category) ?? 0) + 1);
+  }
+  const incomingCats = new Map<KnowledgeCategory, number>();
+  for (const it of extraction.items) {
+    incomingCats.set(it.category, (incomingCats.get(it.category) ?? 0) + 1);
+  }
+
+  const categoryConflicts: CategoryConflict[] = [];
+  const newCategories: KnowledgeCategory[] = [];
+  for (const [cat, count] of incomingCats) {
+    const existingCount = existingCats.get(cat) ?? 0;
+    if (existingCount > 0) {
+      categoryConflicts.push({
+        category: cat,
+        label: KNOWLEDGE_CATEGORY_LABELS[cat],
+        existingCount,
+        incomingCount: count,
+      });
+    } else {
+      newCategories.push(cat);
+    }
+  }
+
+  return { fieldConflicts, newFields, categoryConflicts, newCategories };
+}
+
+export type FieldDecision = "replace" | "keep";
+export type CategoryDecision = "replace" | "merge";

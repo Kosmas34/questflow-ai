@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, X, Check } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useToast } from "@/components/Toast";
 import {
   KNOWLEDGE_CATEGORY_LABELS,
   type KnowledgeCategory,
@@ -27,6 +28,7 @@ export default function KnowledgeBase({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const categories = Object.keys(KNOWLEDGE_CATEGORY_LABELS) as KnowledgeCategory[];
 
@@ -56,6 +58,7 @@ export default function KnowledgeBase({
       else {
         setItems((list) => list.map((i) => (i.id === editingId ? { ...i, ...draft } : i)));
         setEditingId(null);
+        toast.success("Η πληροφορία ενημερώθηκε.");
       }
     } else {
       const { data, error } = await supabase
@@ -67,6 +70,7 @@ export default function KnowledgeBase({
       else {
         setItems((list) => [...list, data]);
         setAdding(false);
+        toast.success("Η πληροφορία προστέθηκε.");
       }
     }
     setBusy(false);
@@ -75,7 +79,12 @@ export default function KnowledgeBase({
   async function remove(id: string) {
     const supabase = supabaseBrowser();
     const { error } = await supabase.from("knowledge_items").delete().eq("id", id);
-    if (!error) setItems((list) => list.filter((i) => i.id !== id));
+    if (!error) {
+      setItems((list) => list.filter((i) => i.id !== id));
+      toast.success("Η πληροφορία διαγράφηκε.");
+    } else {
+      toast.error("Η διαγραφή απέτυχε.");
+    }
   }
 
   const editor = (

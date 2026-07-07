@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import StatCard from "@/components/StatCard";
 import BarRow from "@/components/BarRow";
+import PageHeader from "@/components/PageHeader";
 import {
   KNOWLEDGE_CATEGORY_LABELS,
   REQUEST_CATEGORY_LABELS,
@@ -60,7 +61,7 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-display text-3xl">Analytics</h1>
+      <PageHeader title="Analytics" subtitle="Τι ρωτούν οι επισκέπτες σας και πότε." />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard label="Συνολικές ερωτήσεις" value={totalQuestions} />
@@ -70,7 +71,7 @@ export default async function AnalyticsPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         {/* Topics */}
-        <section className="card">
+        <section className="card card-hover fade-in">
           <h2 className="font-display text-xl">Συχνότερα θέματα</h2>
           <div className="mt-5 space-y-3">
             {topics.length === 0 && <p className="text-sm text-sea/60">Χωρίς δεδομένα ακόμη.</p>}
@@ -81,7 +82,7 @@ export default async function AnalyticsPage() {
         </section>
 
         {/* Languages */}
-        <section className="card">
+        <section className="card card-hover fade-in">
           <h2 className="font-display text-xl">Γλώσσες επισκεπτών</h2>
           <div className="mt-5 space-y-3">
             {languages.length === 0 && <p className="text-sm text-sea/60">Χωρίς δεδομένα ακόμη.</p>}
@@ -97,7 +98,7 @@ export default async function AnalyticsPage() {
         </section>
 
         {/* Requests per category */}
-        <section className="card">
+        <section className="card card-hover fade-in">
           <h2 className="font-display text-xl">Αιτήματα ανά κατηγορία</h2>
           <div className="mt-5 space-y-3">
             {requestCats.length === 0 && <p className="text-sm text-sea/60">Χωρίς δεδομένα ακόμη.</p>}
@@ -113,7 +114,7 @@ export default async function AnalyticsPage() {
         </section>
 
         {/* Usage per day */}
-        <section className="card">
+        <section className="card card-hover fade-in">
           <h2 className="font-display text-xl">Χρήση ανά ημέρα</h2>
           <p className="mt-1 text-xs text-sea/50">Ερωτήσεις επισκεπτών, τελευταίες 14 ημέρες</p>
           <div className="mt-5 flex h-40 items-end gap-1.5">

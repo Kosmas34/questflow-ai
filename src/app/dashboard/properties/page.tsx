@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Building2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import { PROPERTY_TYPE_LABELS, type PropertyType } from "@/lib/types";
 import LoadDemoButton from "@/components/LoadDemoButton";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -15,35 +17,36 @@ export default async function PropertiesPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-3xl">Καταλύματα</h1>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/dashboard/wizard" className="btn-primary">
-            ✨ AI Setup Wizard
-          </Link>
-          <Link href="/dashboard/properties/new" className="btn-secondary">
-            + Χειροκίνητα
-          </Link>
-        </div>
-      </div>
-
-      {(properties ?? []).length === 0 ? (
-        <div className="card mt-8 text-center">
-          <Building2 className="mx-auto h-10 w-10 text-sea/30" />
-          <p className="mt-4 text-sea/70">
-            Δεν έχετε ακόμη κατάλυμα. Δημιουργήστε το πρώτο σας ή δοκιμάστε το demo.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+      <PageHeader
+        title="Καταλύματα"
+        actions={
+          <>
             <Link href="/dashboard/wizard" className="btn-primary">
               ✨ AI Setup Wizard
             </Link>
+            <Link href="/dashboard/properties/new" className="btn-secondary">
+              + Χειροκίνητα
+            </Link>
+          </>
+        }
+      />
+
+      {(properties ?? []).length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            title="No properties yet"
+            description="Δεν έχετε ακόμη κατάλυμα. Δημιουργήστε το πρώτο σας με τον AI Setup Wizard σε λιγότερο από 5 λεπτά, ή δοκιμάστε το demo."
+          >
+            <Link href="/dashboard/wizard" className="btn-primary">
+              Create your first property
+            </Link>
             <LoadDemoButton />
-          </div>
+          </EmptyState>
         </div>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {properties!.map((p) => (
-            <div key={p.id} className="card flex flex-col">
+            <div key={p.id} className="card card-hover fade-in flex flex-col">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-display text-xl">{p.name}</h2>
