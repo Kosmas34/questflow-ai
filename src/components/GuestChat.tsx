@@ -107,7 +107,7 @@ export default function GuestChat({
   return (
     <div className="mx-auto flex h-dvh max-w-lg flex-col bg-shore">
       {/* Header */}
-      <header className="relative overflow-hidden bg-sea-gradient px-5 pb-5 pt-6 text-shore">
+      <header className="relative overflow-hidden bg-gradient-to-br from-sea to-aegean-deep px-5 pb-5 pt-6 text-shore">
         {/* subtle decorative sun */}
         <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gold/20 blur-2xl" />
         <div className="relative flex items-start justify-between gap-3">

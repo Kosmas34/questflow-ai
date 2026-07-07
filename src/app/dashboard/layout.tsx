@@ -8,7 +8,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen md:flex">
       {/* Sidebar (top bar on mobile) */}
-      <aside className="flex items-center justify-between gap-4 border-b border-white/5 bg-sea-gradient px-4 py-3 text-shore md:min-h-screen md:w-60 md:flex-col md:items-stretch md:justify-start md:border-b-0 md:px-4 md:py-7">
+      <aside className="flex items-center justify-between gap-4 border-b border-white/5 bg-gradient-to-br from-sea to-aegean-deep px-4 py-3 text-shore md:min-h-screen md:w-60 md:flex-col md:items-stretch md:justify-start md:border-b-0 md:px-4 md:py-7">
         <Link href="/dashboard" className="flex items-center gap-2 font-display text-xl tracking-tight">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gold/90 text-sea">
             <Sparkles className="h-4 w-4" />

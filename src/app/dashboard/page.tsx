@@ -110,7 +110,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl">
       {/* Mission-control hero */}
-      <div className="fade-in overflow-hidden rounded-card bg-sea-gradient text-shore shadow-lift">
+      <div className="fade-in overflow-hidden rounded-card bg-gradient-to-br from-sea to-aegean-deep text-shore shadow-lift">
         <div className="flex flex-wrap items-start justify-between gap-6 p-6 md:p-8">
           <div>
             <p className="text-sm text-shore/70">{greeting()} 👋</p>

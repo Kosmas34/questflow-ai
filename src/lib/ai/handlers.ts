@@ -148,3 +148,19 @@ export function handleCoreIntent(
       return null;
   }
 }
+
+/**
+ * True for short affirmative replies ("ναι", "κάντο", "yes", "ok", "please").
+ * Used to detect when a guest confirms a previous offer from the assistant.
+ */
+export function isAffirmative(raw: string): boolean {
+  const t = normalize(raw).trim().replace(/[!.]/g, "");
+  if (t.length > 24) return false; // a long message isn't a bare "yes"
+  return /^(ναι|ναι παρακαλω|καντο|καντε το|καν το|οκ|ενταξει|ok|okay|yes|yes please|yep|sure|please|please do|go ahead|προχωρα|προχωρησε)$/.test(t);
+}
+
+/** True if a previous assistant message offered to involve the property team. */
+export function looksLikeTeamOffer(raw: string): boolean {
+  const t = normalize(raw);
+  return /(ομαδα του καταλυματος|ενημερωσω|ενημερωσει|property team|notify the (property )?team|ρωτησω την ομαδα|να σας βοηθησει|help you)/.test(t);
+}

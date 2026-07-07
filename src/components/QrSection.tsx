@@ -24,7 +24,7 @@ export default function QrSection({ propertyId, slug }: { propertyId: string; sl
     <div className="fade-in grid gap-6 lg:grid-cols-2">
       {/* Premium QR preview */}
       <DashboardCard title="Room QR" icon={DoorClosed}>
-        <div className="rounded-2xl bg-sea-gradient p-8 text-center">
+        <div className="rounded-2xl bg-gradient-to-br from-sea to-aegean-deep p-8 text-center">
           <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-lift">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

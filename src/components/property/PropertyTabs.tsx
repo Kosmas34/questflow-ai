@@ -61,7 +61,7 @@ export default function PropertyTabs({
   return (
     <div className="mx-auto max-w-5xl">
       {/* ---------- Header ---------- */}
-      <div className="fade-in overflow-hidden rounded-card bg-sea-gradient text-shore shadow-lift">
+      <div className="fade-in overflow-hidden rounded-card bg-gradient-to-br from-sea to-aegean-deep text-shore shadow-lift">
         <div className="flex flex-wrap items-start justify-between gap-5 p-6 md:p-7">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +266,7 @@ function AssistantTab({ property }: { property: Property }) {
         <p className="mb-4 mt-1 text-sm text-sea/55">Έτσι βλέπει ο επισκέπτης τον βοηθό στο κινητό του.</p>
         <MobilePreviewFrame>
           <div className="flex h-full flex-col">
-            <div className="bg-sea-gradient px-4 pb-4 pt-5 text-shore">
+            <div className="bg-gradient-to-br from-sea to-aegean-deep px-4 pb-4 pt-5 text-shore">
               <p className="font-display text-lg leading-tight">{property.name}</p>
               {property.area && <p className="text-xs text-shore/70">{property.area}</p>}
             </div>

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { aiChat, type AiMessage } from "@/lib/ai/provider";
 import { detectRequest, detectTopic } from "@/lib/ai/intent";
 import { detectSmallTalk, findRelevantItems } from "@/lib/ai/retrieval";
-import { detectCoreIntent, handleCoreIntent } from "@/lib/ai/handlers";
+import { detectCoreIntent, handleCoreIntent, isAffirmative, looksLikeTeamOffer } from "@/lib/ai/handlers";
 import { checkLimit, clientIp, LIMITS, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { buildRequestEmail, sendEmail } from "@/lib/notify/email";
 import { FALLBACK_ANSWER, type GuestLang } from "@/lib/i18n";
@@ -88,19 +88,29 @@ export async function POST(req: Request) {
 
   // ---- 4. Deterministic request detection (independent of AI) ----
   const detected = detectRequest(message);
+
+  // Follow-up: guest confirms a previous offer ("κάντο", "ναι", "yes"…) and
+  // the assistant's last message was an offer to involve the team → treat as
+  // a real help request so it actually reaches the owner, not just words.
+  const lastAssistant = [...(body.history ?? [])].reverse().find((m) => m.role === "assistant");
+  const confirmedOffer =
+    !detected && isAffirmative(message) && !!lastAssistant && looksLikeTeamOffer(lastAssistant.content);
+
+  const category = detected?.category ?? (confirmedOffer ? "help" : null);
   let requestCreated = false;
-  if (detected) {
+  if (category) {
     const { error } = await supabase.from("requests").insert({
       property_id: property.id,
       session_id: session.id,
-      category: detected.category,
-      message,
+      category,
+      // For a bare "yes", store the original question for context.
+      message: confirmedOffer && lastAssistant ? `${message} — (σχετικά με: ${lastAssistant.content.slice(0, 120)})` : message,
     });
     requestCreated = !error;
 
     // Notify the owner by email (never blocks/fails the guest flow).
     if (requestCreated) {
-      notifyOwner(property.owner_id, property.name, detected.category, message).catch(() => {});
+      notifyOwner(property.owner_id, property.name, category, message).catch(() => {});
     }
   }
 
@@ -233,15 +243,17 @@ async function composeAnswer(opts: {
     .filter(Boolean)
     .join("\n");
 
-  const system = `You are the front-desk concierge for "${property.name}"${property.area ? `, in ${property.area}` : ""}. You are chatting with a guest during their stay.
+  const system = `You are a warm, professional front-desk concierge for "${property.name}"${property.area ? `, in ${property.area}` : ""}, chatting with a guest during their stay. Sound like a real, helpful receptionist — never robotic, never repetitive.
 
 HOW TO REPLY:
-- Warm, polite, concise and practical — like a friendly receptionist, not a robot.
-- Reply in ${language === "el" ? "Greek" : "English"}.
-- Use ONLY the information below. Do not invent specific names, prices, phone numbers, or places that are not given.
-- Never say things like "according to the knowledge base" or quote raw field names. Just answer naturally.
-- Keep it to 1–3 short sentences unless the guest asks for a list.
-- If the specific detail truly isn't in the information below, reply with EXACTLY: "${FALLBACK_ANSWER[language]}"
+- Reply in ${language === "el" ? "Greek" : "English"}. Keep it to 1–3 short sentences unless the guest asks for a list.
+- When the answer IS in the information below, give it directly and warmly.
+- When a specific detail is NOT in the information below, DO NOT repeat a fixed canned sentence. Instead, respond naturally and helpfully, varying your wording:
+  · You MAY give brief general guidance that is broadly true (e.g. that the area usually has good options nearby, typical opening hours, that a town centre normally has a pharmacy). This is allowed and encouraged.
+  · You MUST NOT invent specific business names, phone numbers, addresses, prices, or distances. If a specific like that isn't provided, don't make one up.
+  · Then warmly offer to have the property team help with specifics — e.g. "Θέλετε να ρωτήσω την ομάδα του καταλύματος να σας δώσει συγκεκριμένες προτάσεις;"
+- IMPORTANT — read the recent conversation: if the guest is confirming a previous offer of yours (short replies like "κάντο", "ναι", "yes", "please do", "ok"), treat it as YES. Confirm warmly that you've passed the request to the property team and they'll follow up — do NOT repeat the same offer again.
+- Never say "according to the knowledge base" or mention raw field names. Just talk naturally.
 ${requestCreated ? `- The guest's request has just been forwarded to the property team. Reassure them warmly that someone will help.` : ""}
 
 PROPERTY INFORMATION:
