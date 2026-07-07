@@ -3,18 +3,13 @@
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
+import { StatusBadge } from "@/components/StatusBadge";
 import {
   REQUEST_CATEGORY_LABELS,
   REQUEST_STATUS_LABELS,
   type GuestRequest,
   type RequestStatus,
 } from "@/lib/types";
-
-const STATUS_STYLES: Record<RequestStatus, string> = {
-  new: "bg-gold/20 text-yellow-800",
-  in_progress: "bg-foam text-aegean",
-  done: "bg-green-100 text-green-700",
-};
 
 // Requests inbox: filter by status, move each request through
 // new → in progress → done.
@@ -78,9 +73,7 @@ export default function RequestList({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[r.status]}`}>
-                      {REQUEST_STATUS_LABELS[r.status]}
-                    </span>
+                    <StatusBadge status={r.status} />
                     <span className="text-xs text-sea/50">
                       {REQUEST_CATEGORY_LABELS[r.category] ?? r.category}
                     </span>

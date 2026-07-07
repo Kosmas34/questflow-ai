@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
-import PropertyForm from "@/components/PropertyForm";
-import KnowledgeBase from "@/components/KnowledgeBase";
-import QrSection from "@/components/QrSection";
-import type { KnowledgeItem, Property } from "@/lib/types";
+import PropertyTabs from "@/components/property/PropertyTabs";
+import { computeKnowledgeHealth } from "@/lib/health";
+import type { GuestRequest, KnowledgeItem, Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,48 +17,42 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
 
   if (!property) notFound();
 
-  const { data: items } = await supabase
-    .from("knowledge_items")
-    .select("*")
-    .eq("property_id", property.id)
-    .order("created_at", { ascending: true })
-    .returns<KnowledgeItem[]>();
+  const [itemsRes, sessionsRes, answeredRes, requestsRes, topicsRes] = await Promise.all([
+    supabase.from("knowledge_items").select("*").eq("property_id", property.id).order("created_at", { ascending: true }).returns<KnowledgeItem[]>(),
+    supabase.from("guest_sessions").select("id", { count: "exact", head: true }).eq("property_id", property.id),
+    supabase.from("guest_messages").select("id", { count: "exact", head: true }).eq("property_id", property.id).eq("role", "assistant"),
+    supabase.from("requests").select("*").eq("property_id", property.id).order("created_at", { ascending: false }).returns<GuestRequest[]>(),
+    supabase.from("guest_messages").select("topic").eq("property_id", property.id).eq("role", "guest").limit(500),
+  ]);
+
+  const items = itemsRes.data ?? [];
+  const requests = requestsRes.data ?? [];
+
+  // Knowledge health
+  const cats = new Set(items.map((i) => i.category));
+  const health = computeKnowledgeHealth(property, cats);
+
+  // Top guest need
+  const topicCounts: Record<string, number> = {};
+  for (const m of topicsRes.data ?? []) topicCounts[m.topic] = (topicCounts[m.topic] ?? 0) + 1;
+  const topTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const stats = {
+    scans: sessionsRes.count ?? 0,
+    answered: answeredRes.count ?? 0,
+    openRequests: requests.filter((r) => r.status !== "done").length,
+    healthPercent: health.percent,
+    topNeed: topTopics[0]?.[0] ?? null,
+  };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="fade-in flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl tracking-tight">{property.name}</h1>
-          <p className="mt-1 text-sea/60">
-            Guest page: <span className="font-mono text-sm">/guest/{property.slug}</span>
-          </p>
-        </div>
-        <Link href={`/dashboard/wizard?property=${property.id}`} className="btn-secondary">
-          ✨ AI Import από κείμενο
-        </Link>
-      </div>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-10">
-          <section>
-            <h2 className="mb-4 font-display text-2xl">Στοιχεία καταλύματος</h2>
-            <PropertyForm property={property} />
-          </section>
-
-          <section>
-            <h2 className="mb-1 font-display text-2xl">Βάση γνώσης</h2>
-            <p className="mb-4 text-sm text-sea/60">
-              Ο AI βοηθός απαντά <b>μόνο</b> με βάση αυτές τις πληροφορίες.
-              Όσο πιο πλήρεις είναι, τόσο καλύτερες οι απαντήσεις.
-            </p>
-            <KnowledgeBase propertyId={property.id} initialItems={items ?? []} />
-          </section>
-        </div>
-
-        <div>
-          <QrSection propertyId={property.id} slug={property.slug} />
-        </div>
-      </div>
-    </div>
+    <PropertyTabs
+      property={property}
+      initialItems={items}
+      requests={requests}
+      stats={stats}
+      topTopics={topTopics}
+      healthMissing={health.missing.map((m) => m.label)}
+    />
   );
 }

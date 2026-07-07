@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Wifi, LogOut, Car, UtensilsCrossed, Waves, LifeBuoy } from "lucide-react";
+import { Send, Wifi, LogOut, Car, UtensilsCrossed, Waves, LifeBuoy, Sparkles } from "lucide-react";
 import { GUEST_STRINGS, type GuestLang } from "@/lib/i18n";
 
 interface Msg {
@@ -10,8 +10,9 @@ interface Msg {
   requestCreated?: boolean;
 }
 
-// The guest-facing chat. Mobile-first: full-height layout, big touch
-// targets, quick buttons for the questions every guest asks.
+// The guest-facing chat. Mobile-first premium concierge UI.
+// NOTE: only the presentation was redesigned — session handling, sending,
+// language detection and quick-button filtering are unchanged.
 export default function GuestChat({
   slug,
   name,
@@ -24,9 +25,7 @@ export default function GuestChat({
   name: string;
   area: string;
   languages: string[];
-  /** Custom first bubble from the owner (wizard). Falls back to default greeting. */
   welcomeMessage?: string;
-  /** Which quick buttons to show (wizard). null = all (backwards compatible). */
   quickButtons?: string[] | null;
 }) {
   const supported = (["el", "en"] as GuestLang[]).filter((l) => languages.includes(l));
@@ -41,10 +40,6 @@ export default function GuestChat({
 
   const t = GUEST_STRINGS[lang];
 
-  // On first load: detect the browser language (Greek browser → Greek,
-  // otherwise English), then create the guest session with it.
-  // Runs in useEffect (client only) to avoid SSR hydration mismatches.
-  // The guest can always switch manually with the header buttons.
   useEffect(() => {
     let detected: GuestLang = defaultLang;
     const nav = navigator.language?.toLowerCase() ?? "";
@@ -103,29 +98,34 @@ export default function GuestChat({
     { key: "beaches", icon: Waves, label: t.quickBeaches, question: t.qBeaches },
     { key: "help", icon: LifeBuoy, label: t.quickHelp, question: t.qHelp },
   ];
-  // The wizard lets owners choose which buttons appear; older properties
-  // (quickButtons = null) keep showing all of them.
   const visibleQuickButtons = quickButtons
     ? allQuickButtons.filter((b) => quickButtons.includes(b.key))
     : allQuickButtons;
 
+  const showQuickCards = messages.length === 0;
+
   return (
     <div className="mx-auto flex h-dvh max-w-lg flex-col bg-shore">
       {/* Header */}
-      <header className="bg-sea px-5 pb-4 pt-5 text-shore">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="font-display text-xl leading-tight">{name}</h1>
+      <header className="relative overflow-hidden bg-sea-gradient px-5 pb-5 pt-6 text-shore">
+        {/* subtle decorative sun */}
+        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gold/20 blur-2xl" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-shore/60">
+              <Sparkles className="h-3 w-3 text-gold" /> Digital Concierge
+            </div>
+            <h1 className="mt-1 truncate font-display text-2xl leading-tight">{name}</h1>
             {area && <p className="mt-0.5 text-sm text-shore/70">{area}</p>}
           </div>
           {supported.length > 1 && (
-            <div className="flex rounded-full border border-shore/25 p-0.5" role="group" aria-label={t.languageLabel}>
+            <div className="flex shrink-0 rounded-full border border-shore/25 bg-white/5 p-0.5" role="group" aria-label={t.languageLabel}>
               {supported.map((l) => (
                 <button
                   key={l}
                   onClick={() => setLang(l)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    lang === l ? "bg-gold text-sea" : "text-shore/70"
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                    lang === l ? "bg-gold text-sea" : "text-shore/70 hover:text-shore"
                   }`}
                 >
                   {l === "el" ? "ΕΛ" : "EN"}
@@ -134,57 +134,100 @@ export default function GuestChat({
             </div>
           )}
         </div>
-        <p className="mt-2 text-xs text-shore/60">{t.tagline}</p>
       </header>
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        <div className="w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-foam px-4 py-2.5 text-sm">
-          {welcomeMessage.trim() || t.greeting}
+        {/* Welcome bubble */}
+        <div className="flex items-end gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sea text-gold">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+          <div className="w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-4 py-2.5 text-sm shadow-soft">
+            {welcomeMessage.trim() || t.greeting}
+          </div>
         </div>
+
+        {/* Quick-action cards (only before the first message) */}
+        {showQuickCards && (
+          <div className="fade-in grid grid-cols-2 gap-2 pt-2">
+            {visibleQuickButtons.map(({ key, icon: Icon, label, question }) => (
+              <button
+                key={key}
+                onClick={() => send(question)}
+                disabled={sending || !sessionId}
+                className="group flex items-center gap-2.5 rounded-2xl border border-sea/10 bg-white px-3.5 py-3 text-left text-sm font-medium text-sea shadow-soft transition-all hover:-translate-y-0.5 hover:border-aegean/30 hover:shadow-lift disabled:opacity-50"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-foam text-aegean transition-colors group-hover:bg-aegean group-hover:text-white">
+                  <Icon className="h-4 w-4" />
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {messages.map((m, i) => (
-          <div key={i}>
-            <div
-              className={`w-fit max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm ${
-                m.role === "guest"
-                  ? "ml-auto rounded-br-sm bg-aegean text-white"
-                  : "rounded-bl-sm bg-foam"
-              }`}
-            >
-              {m.content}
-            </div>
+          <div key={i} className="fade-in">
+            {m.role === "assistant" ? (
+              <div className="flex items-end gap-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sea text-gold">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <div className="w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-white px-4 py-2.5 text-sm shadow-soft">
+                  {m.content}
+                </div>
+              </div>
+            ) : (
+              <div className="w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-br-sm bg-aegean px-4 py-2.5 text-sm text-white shadow-soft ml-auto">
+                {m.content}
+              </div>
+            )}
             {m.requestCreated && (
-              <p className="mt-1 text-xs font-medium text-green-700">{t.requestCreated}</p>
+              <p className="mt-1 flex items-center gap-1 pl-9 text-xs font-medium text-green-700">
+                ✓ {t.requestCreated}
+              </p>
             )}
           </div>
         ))}
+
+        {/* Typing indicator */}
         {sending && (
-          <div className="w-fit rounded-2xl rounded-bl-sm bg-foam px-4 py-2.5 text-sm text-sea/50">
-            {t.thinking}
+          <div className="flex items-end gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sea text-gold">
+              <Sparkles className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-white px-4 py-3 shadow-soft">
+              <span className="h-2 w-2 animate-bounce rounded-full bg-sea/30 [animation-delay:-0.3s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-sea/30 [animation-delay:-0.15s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-sea/30" />
+            </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick buttons */}
-      <div className="flex gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
-        {visibleQuickButtons.map(({ key, icon: Icon, label, question }) => (
-          <button
-            key={key}
-            onClick={() => send(question)}
-            disabled={sending || !sessionId}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-sea/15 bg-white px-4 py-2 text-sm text-sea/80 transition-colors hover:border-aegean hover:text-aegean disabled:opacity-50"
-          >
-            <Icon className="h-4 w-4 text-aegean" />
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Quick buttons row (after conversation starts) */}
+      {!showQuickCards && (
+        <div className="flex gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+          {visibleQuickButtons.map(({ key, icon: Icon, label, question }) => (
+            <button
+              key={key}
+              onClick={() => send(question)}
+              disabled={sending || !sessionId}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-sea/15 bg-white px-4 py-2 text-sm text-sea/80 shadow-soft transition-all hover:border-aegean hover:text-aegean disabled:opacity-50"
+            >
+              <Icon className="h-4 w-4 text-aegean" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
       <div className="flex items-center gap-2 border-t border-sea/10 bg-white px-4 py-3">
         <input
-          className="field flex-1 border-0 bg-sand/60"
+          className="flex-1 rounded-full border border-sea/15 bg-sand/50 px-4 py-2.5 text-sea transition-colors placeholder:text-sea/40 focus:border-aegean focus:bg-white"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send(input)}
@@ -194,7 +237,7 @@ export default function GuestChat({
         <button
           onClick={() => send(input)}
           disabled={sending || !input.trim() || !sessionId}
-          className="rounded-full bg-aegean p-3 text-white transition-colors hover:bg-aegean-deep disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-aegean text-white shadow-soft transition-all hover:bg-aegean-deep active:scale-95 disabled:opacity-40"
           aria-label={t.send}
         >
           <Send className="h-4 w-4" />

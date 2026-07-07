@@ -44,7 +44,7 @@ export default async function PropertiesPage() {
           </EmptyState>
         </div>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 fade-in">
           {properties!.map((p) => (
             <div key={p.id} className="card card-hover fade-in flex flex-col">
               <div className="flex items-start justify-between gap-3">

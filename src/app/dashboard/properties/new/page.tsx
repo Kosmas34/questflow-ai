@@ -1,15 +1,25 @@
+import { Wand2 } from "lucide-react";
 import PropertyForm from "@/components/PropertyForm";
+import PageHeader from "@/components/PageHeader";
+import PremiumButton from "@/components/PremiumButton";
+import DashboardCard from "@/components/DashboardCard";
 
 export default function NewPropertyPage() {
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-display text-3xl">Νέο κατάλυμα</h1>
-      <p className="mt-2 text-sea/70">
-        Συμπληρώστε τα βασικά στοιχεία. Μετά τη δημιουργία μπορείτε να
-        προσθέσετε πληροφορίες στη βάση γνώσης και να τυπώσετε το QR.
-      </p>
+      <PageHeader
+        title="Νέο κατάλυμα"
+        subtitle="Συμπληρώστε τα βασικά στοιχεία. Μετά τη δημιουργία μπορείτε να προσθέσετε πληροφορίες στη βάση γνώσης και να τυπώσετε το QR."
+        actions={
+          <PremiumButton href="/dashboard/wizard" variant="secondary" icon={Wand2}>
+            AI Setup Wizard
+          </PremiumButton>
+        }
+      />
       <div className="mt-8">
-        <PropertyForm />
+        <DashboardCard>
+          <PropertyForm />
+        </DashboardCard>
       </div>
     </div>
   );
